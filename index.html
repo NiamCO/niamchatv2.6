@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NiamChat V2.6</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://niamco.github.io/niamchatv2.6/niamchat.png">
+</head>
+<body data-theme="seaside">
+    <!-- Username Selection Modal -->
+    <div id="usernameModal" class="modal active">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><svg class="modal-icon" viewBox="0 0 24 24"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg>Welcome to NiamChat</h2>
+                <p class="warning-text">⚠️ Choose your username carefully - <strong>it cannot be changed later!</strong></p>
+            </div>
+            
+            <div class="form-group">
+                <div class="input-with-icon">
+                    <svg class="input-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+                    <input type="text" id="usernameInput" placeholder="Enter username (3-30 characters)" maxlength="30" autocomplete="off" autofocus>
+                </div>
+                <div class="error-message" id="usernameError"></div>
+                <div class="hint">Allowed: letters, numbers, underscores. No spaces.</div>
+            </div>
+
+            <div class="theme-selection">
+                <h3>Select Theme:</h3>
+                <div class="theme-grid">
+                    <div class="theme-option" data-theme="seaside">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #4A90E2 0%, #FFD166 50%, #F5F7FA 100%);"></div>
+                        <span>Seaside</span>
+                        <div class="pearl-indicator">✨</div>
+                    </div>
+                    <div class="theme-option" data-theme="cozy-house">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #FFF8E1 100%);"></div>
+                        <span>Cozy House</span>
+                        <div class="pearl-indicator">✨</div>
+                    </div>
+                    <div class="theme-option" data-theme="neon-city">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #00FF9D 0%, #FF00FF 50%, #0A0A0A 100%);"></div>
+                        <span>Neon City</span>
+                    </div>
+                    <div class="theme-option" data-theme="forest-retreat">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #2E7D32 0%, #FFB300 50%, #F1F8E9 100%);"></div>
+                        <span>Forest Retreat</span>
+                        <div class="pearl-indicator">✨</div>
+                    </div>
+                    <div class="theme-option" data-theme="winter-wonderland">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #4FC3F7 0%, #FFD740 50%, #E1F5FE 100%);"></div>
+                        <span>Winter Wonderland</span>
+                        <div class="pearl-indicator">✨</div>
+                    </div>
+                    <div class="theme-option" data-theme="starry-night">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #1A237E 0%, #E8EAF6 50%, #0D1B2A 100%);"></div>
+                        <span>Starry Night</span>
+                        <div class="pearl-indicator">✨</div>
+                    </div>
+                    <div class="theme-option" data-theme="candyland">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF80AB 0%, #80DEEA 50%, #FFF9C4 100%);"></div>
+                        <span>Candyland</span>
+                    </div>
+                    <div class="theme-option" data-theme="desert-oasis">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #FFB74D 0%, #4DB6AC 50%, #FFF3E0 100%);"></div>
+                        <span>Desert Oasis</span>
+                        <div class="pearl-indicator">✨</div>
+                    </div>
+                    <div class="theme-option" data-theme="retro-arcade">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF0000 0%, #00FF00 50%, #000000 100%);"></div>
+                        <span>Retro Arcade</span>
+                    </div>
+                    <div class="theme-option" data-theme="autumn-park">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #FF6F00 0%, #388E3C 50%, #FFF3E0 100%);"></div>
+                        <span>Autumn Park</span>
+                        <div class="pearl-indicator">✨</div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="startChatBtn" class="btn-primary">
+                <svg class="btn-icon" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+                Start Chatting
+            </button>
+
+            <div class="modal-footer">
+                <p>Owner: <span class="owner-badge">Doneman123 (Niam)</span></p>
+                <p class="small-text">Chat rooms: Open, Public, Admin • Image uploads up to 6MB • No email required</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Interface -->
+    <div id="chatApp" class="hidden">
+        <!-- Header -->
+        <header class="chat-header">
+            <div class="header-left">
+                <button id="menuToggle" class="icon-btn" aria-label="Menu" title="Toggle sidebar">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 5h18"/><path d="M3 12h18"/><path d="M3 19h18"/></svg>
+                </button>
+                <div class="logo">
+                    <h1>NiamChat</h1>
+                    <div class="room-info">
+                        <span id="currentRoomIcon">
+                            <svg class="room-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                        </span>
+                        <span id="currentRoomTitle">Open Chat</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <div class="typing-indicator-container">
+                    <div id="typingIndicator" class="typing-indicator hidden">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="online-status">
+                    <div class="online-count">
+                        <span class="online-dot">
+                            <svg class="online-icon" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1.371 8.143c5.858-5.857 15.356-5.857 21.213 0a.75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.06 0c-4.98-4.979-13.053-4.979-18.032 0a.75.75 0 0 1-1.06 0l-.53-.53a.75.75 0 0 1 0-1.06Zm3.182 3.182c4.1-4.1 10.749-4.1 14.85 0a.75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.062 0 8.25 8.25 0 0 0-11.667 0 .75.75 0 0 1-1.06 0l-.53-.53a.75.75 0 0 1 0-1.06Zm3.204 3.182a6 6 0 0 1 8.486 0 .75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.061 0 3.75 3.75 0 0 0-5.304 0 .75.75 0 0 1-1.06 0l-.53-.53a.75.75 0 0 1 0-1.06Zm3.182 3.182a1.5 1.5 0 0 1 2.122 0 .75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.061 0l-.53-.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
+                        </span>
+                        <span id="onlineCount">0</span> online
+                    </div>
+                    <div class="user-info">
+                        <span id="userRoleBadge" class="role-badge user">User</span>
+                        <span id="currentUsername" class="username-display"></span>
+                    </div>
+                </div>
+                
+                <div class="header-actions">
+                    <button id="themeToggle" class="icon-btn" aria-label="Change theme" title="Change theme">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                    </button>
+                    <button id="settingsToggle" class="icon-btn" aria-label="Settings" title="Settings">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button id="logoutBtn" class="btn-secondary" title="Leave chat">
+                        <svg class="btn-icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" y2="12" x2="9"/></svg>
+                        Leave
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="chat-container">
+            <!-- Sidebar -->
+            <aside class="sidebar active" id="sidebar">
+                <!-- Close sidebar button for mobile -->
+                <button id="closeSidebar" class="icon-btn close-sidebar" aria-label="Close sidebar">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+
+                <!-- Rooms Section -->
+                <div class="sidebar-section">
+                    <h3><svg class="section-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> Chat Rooms</h3>
+                    <div class="room-list">
+                        <button class="room-btn active" data-room="open" data-room-name="Open Chat">
+                            <svg class="room-btn-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                            <span class="room-name">Open Chat</span>
+                            <span class="room-badge" id="openCount">0</span>
+                        </button>
+                        <button class="room-btn" data-room="public" data-room-name="Public Chat">
+                            <svg class="room-btn-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                            <span class="room-name">Public Chat</span>
+                            <span class="room-badge" id="publicCount">0</span>
+                        </button>
+                        <button class="room-btn admin-room" data-room="admin" data-room-name="Admin Chat" id="adminChatBtn" disabled>
+                            <svg class="room-btn-icon" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                            <span class="room-name">Admin Chat</span>
+                            <span class="room-badge" id="adminCount">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Online Users -->
+                <div class="sidebar-section">
+                    <h3><svg class="section-icon" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1.371 8.143c5.858-5.857 15.356-5.857 21.213 0a.75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.06 0c-4.98-4.979-13.053-4.979-18.032 0a.75.75 0 0 1-1.06 0l-.53-.53a.75.75 0 0 1 0-1.06Zm3.182 3.182c4.1-4.1 10.749-4.1 14.85 0a.75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.062 0 8.25 8.25 0 0 0-11.667 0 .75.75 0 0 1-1.06 0l-.53-.53a.75.75 0 0 1 0-1.06Zm3.204 3.182a6 6 0 0 1 8.486 0 .75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.061 0 3.75 3.75 0 0 0-5.304 0 .75.75 0 0 1-1.06 0l-.53-.53a.75.75 0 0 1 0-1.06Zm3.182 3.182a1.5 1.5 0 0 1 2.122 0 .75.75 0 0 1 0 1.061l-.53.53a.75.75 0 0 1-1.061 0l-.53-.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg> Online Users (<span id="onlineCountSidebar">0</span>)</h3>
+                    <div class="user-list" id="userList">
+                        <div class="empty-users">No users online</div>
+                    </div>
+                </div>
+
+                <!-- Admin Controls (Hidden by default) -->
+                <div class="sidebar-section admin-controls hidden" id="adminControls">
+                    <h3><svg class="section-icon" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Admin Controls</h3>
+                    
+                    <!-- Announcement -->
+                    <div class="admin-action">
+                        <button class="admin-btn" id="announceBtn" title="Send announcement to all users">
+                            <svg class="admin-icon" viewBox="0 0 24 24"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg>
+                            Make Announcement
+                        </button>
+                    </div>
+
+                    <!-- Kick User -->
+                    <div class="admin-action">
+                        <div class="input-with-action">
+                            <input type="text" id="kickUsername" placeholder="Username to kick" class="admin-input">
+                            <button class="btn-danger" id="kickBtn" title="Kick user from chat">
+                                <svg class="action-icon" viewBox="0 0 24 24"><path d="M2 21a8 8 0 0 1 11.873-7"/><circle cx="10" cy="8" r="5"/><path d="m17 17 5 5"/><path d="m22 17-5 5"/></svg>
+                                Kick
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Grant/Revoke Admin -->
+                    <div class="admin-action">
+                        <div class="input-with-action">
+                            <input type="text" id="adminUsername" placeholder="Username for admin" class="admin-input">
+                            <div class="action-buttons">
+                                <button class="btn-warning" id="grantAdminBtn" title="Grant admin privileges">
+                                    <svg class="action-icon" viewBox="0 0 24 24"><path d="M2 21a8 8 0 0 1 13.292-6"/><circle cx="10" cy="8" r="5"/><path d="M19 16v6"/><path d="M22 19h-6"/></svg>
+                                    Grant Admin
+                                </button>
+                                <button class="btn-warning" id="revokeAdminBtn" title="Revoke admin privileges">
+                                    <svg class="action-icon" viewBox="0 0 24 24"><path d="M2 21a8 8 0 0 1 13.292-6"/><circle cx="10" cy="8" r="5"/><path d="M22 19h-6"/></svg>
+                                    Revoke Admin
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ban User -->
+                    <div class="admin-action">
+                        <div class="input-with-action">
+                            <input type="text" id="banUsername" placeholder="Username to ban" class="admin-input">
+                            <button class="btn-danger" id="banBtn" title="Ban user permanently">
+                                <svg class="action-icon" viewBox="0 0 24 24"><path d="M4.929 4.929 19.07 19.071"/><circle cx="12" cy="12" r="10"/></svg>
+                                Ban
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="sidebar-section settings hidden" id="settingsPanel">
+                    <h3><svg class="section-icon" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg> Settings</h3>
+                    
+                    <div class="setting-option">
+                        <label class="switch">
+                            <input type="checkbox" id="soundToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span>Notification sounds</span>
+                    </div>
+
+                    <div class="setting-option">
+                        <label class="switch">
+                            <input type="checkbox" id="typingIndicatorToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span>Show typing indicators</span>
+                    </div>
+
+                    <div class="setting-option">
+                        <label class="switch">
+                            <input type="checkbox" id="imagePreviewsToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span>Show image previews</span>
+                    </div>
+
+                    <div class="setting-option">
+                        <label class="switch">
+                            <input type="checkbox" id="autoScrollToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span>Auto-scroll to new messages</span>
+                    </div>
+
+                    <button id="clearChatBtn" class="btn-secondary">
+                        <svg class="btn-icon" viewBox="0 0 24 24"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Clear Local Chat
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Chat Area -->
+            <main class="chat-main">
+                <!-- Messages Container -->
+                <div class="messages-container" id="messagesContainer">
+                    <!-- Messages will be loaded here -->
+                    <div class="empty-state">
+                        <svg class="empty-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                        <p>No messages yet in this room. Start the conversation!</p>
+                    </div>
+                </div>
+
+                <!-- Message Input -->
+                <div class="message-input-area">
+                    <div class="input-controls">
+                        <button id="attachBtn" class="icon-btn" aria-label="Attach image" title="Attach image (max 6MB)">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>
+                        </button>
+                        
+                        <button id="emojiBtn" class="icon-btn" aria-label="Emoji picker" title="Add emoji">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/><path d="M16 5h6"/><path d="M19 2v6"/></svg>
+                        </button>
+
+                        <div class="input-wrapper">
+                            <input type="text" id="messageInput" placeholder="Type your message..." maxlength="1000" autocomplete="off">
+                            <div class="input-actions">
+                                <button id="sendBtn" class="icon-btn primary" aria-label="Send message" title="Send message (Enter)">
+                                    <svg class="icon" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="searchToggle" class="icon-btn" aria-label="Search messages" title="Search messages">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="input-info">
+                        <span id="charCount">0/1000</span>
+                        <span class="hint">Press Enter to send • Shift+Enter for new line</span>
+                        <span class="file-info" id="fileInfo"></span>
+                    </div>
+
+                    <!-- File Preview -->
+                    <div id="filePreview" class="file-preview hidden">
+                        <div class="preview-content">
+                            <svg class="preview-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            <span id="fileName"></span>
+                            <button id="removeFile" class="icon-btn small">
+                                <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Announcement Modal -->
+    <div id="announcementModal" class="modal hidden">
+        <div class="modal-content announcement-modal">
+            <div class="modal-header">
+                <h3><svg class="modal-icon" viewBox="0 0 24 24"><path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/><path d="M8 6v8"/></svg> Send Announcement</h3>
+                <button id="closeAnnounceModal" class="icon-btn close">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">This announcement will be sent to all online users and saved for offline users.</p>
+                <textarea id="announcementText" placeholder="Enter your announcement message here..." rows="5" maxlength="500"></textarea>
+                <div class="char-counter">
+                    <span id="announceCharCount">0/500</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelAnnounce" class="btn-secondary">Cancel</button>
+                <button id="sendAnnounce" class="btn-primary">Send to All Users</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="imagePreviewModal" class="modal hidden">
+        <div class="modal-content image-modal">
+            <button id="closeImagePreview" class="icon-btn close-preview">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+            <div class="image-container">
+                <img id="previewImage" src="" alt="Image preview">
+            </div>
+            <div class="image-info">
+                <span id="imageName"></span>
+                <span id="imageSize"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="searchModal" class="modal hidden">
+        <div class="modal-content search-modal">
+            <div class="modal-header">
+                <h3><svg class="modal-icon" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg> Search Messages</h3>
+                <button id="closeSearchModal" class="icon-btn close">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="search-input-wrapper">
+                    <input type="text" id="searchInput" placeholder="Search for messages..." autocomplete="off">
+                    <button id="searchBtn" class="icon-btn primary">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+                    </button>
+                </div>
+                <div class="search-results" id="searchResults">
+                    <div class="empty-search">
+                        <p>Enter a search term to find messages</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emoji Picker -->
+    <div id="emojiPicker" class="emoji-picker hidden">
+        <div class="emoji-categories">
+            <button class="emoji-category active" data-category="smileys">😀</button>
+            <button class="emoji-category" data-category="animals">🐻</button>
+            <button class="emoji-category" data-category="food">🍕</button>
+            <button class="emoji-category" data-category="activities">⚽</button>
+            <button class="emoji-category" data-category="objects">💡</button>
+            <button class="emoji-category" data-category="symbols">❤️</button>
+        </div>
+        <div class="emoji-grid" id="emojiGrid">
+            <!-- Emojis will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
