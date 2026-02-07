@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NiamChat Minimal Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .hidden {
+            display: none;
+        }
+        #chatApp {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Username Modal -->
+    <div id="usernameModal" class="modal">
+        <div class="modal-content">
+            <h2>Enter Username</h2>
+            <input type="text" id="usernameInput" placeholder="Username (e.g., Doneman123)">
+            <button id="startChatBtn">Start Chatting</button>
+            <div id="error" style="color: red; margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- Chat Interface -->
+    <div id="chatApp" class="hidden">
+        <h1>NiamChat</h1>
+        <div id="messages"></div>
+        <input type="text" id="messageInput" placeholder="Type message...">
+        <button id="sendBtn">Send</button>
+        <div id="status"></div>
+    </div>
+
+    <!-- Supabase JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // ===== CONFIGURATION =====
+        // ⚠️ REPLACE THESE ⚠️
+        const SUPABASE_URL = 'https://tayhblmwkaujtkuulfqj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRheWhibG13a2F1anRrdXVsZnFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNDQxNDEsImV4cCI6MjA4NTkyMDE0MX0.CY3cjbUqeVUynIHrsZ62fHCxFK-FtPxjxPOYwYL7a4E'; // Get from Supabase Settings > API
+        
+        console.log('Starting NiamChat Minimal Test...');
+        console.log('URL:', SUPABASE_URL);
+        
+        // Initialize Supabase
+        let supabase;
+        try {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('✅ Supabase client created');
+        } catch (error) {
+            console.error('❌ Failed to create Supabase client:', error);
+            document.getElementById('error').textContent = 'Failed to connect. Check console.';
+        }
+        
+        // DOM Elements
+        const usernameModal = document.getElementById('usernameModal');
+        const chatApp = document.getElementById('chatApp');
+        const usernameInput = document.getElementById('usernameInput');
+        const startChatBtn = document.getElementById('startChatBtn');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const messagesDiv = document.getElementById('messages');
+        const statusDiv = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
+        
+        // Global State
+        let currentUser = {
+            username: '',
+            role: 'user'
+        };
+        let currentRoom = 'open';
+        
+        // Event Listeners
+        startChatBtn.addEventListener('click', startChat);
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        
+        // ===== MAIN FUNCTIONS =====
+        async function startChat() {
+            const username = usernameInput.value.trim();
+            
+            if (!username) {
+                showError('Please enter a username');
+                return;
+            }
+            
+            console.log('Starting chat with username:', username);
+            statusDiv.textContent = 'Starting chat...';
+            
+            try {
+                // Check if user exists or create new
+                const { data: existingUser, error: checkError } = await supabase
+                    .from('users')
+                    .select('id, username, role')
+                    .eq('username', username)
+                    .single();
+                
+                if (checkError && checkError.code !== 'PGRST116') {
+                    console.error('Error checking user:', checkError);
+                    showError('Database error. Please check if tables exist.');
+                    return;
+                }
+                
+                if (existingUser) {
+                    console.log('User exists:', existingUser);
+                    currentUser = {
+                        username: existingUser.username,
+                        role: existingUser.role,
+                        id: existingUser.id
+                    };
+                } else {
+                    console.log('Creating new user...');
+                    // Create new user
+                    const role = username.toLowerCase() === 'doneman123' ? 'owner' : 'user';
+                    const { data: newUser, error: createError } = await supabase
+                        .from('users')
+                        .insert({
+                            username: username,
+                            role: role,
+                            is_online: true,
+                            current_room: 'open'
+                        })
+                        .select()
+                        .single();
+                    
+                    if (createError) {
+                        console.error('Error creating user:', createError);
+                        showError('Failed to create user: ' + createError.message);
+                        return;
+                    }
+                    
+                    console.log('New user created:', newUser);
+                    currentUser = {
+                        username: newUser.username,
+                        role: newUser.role,
+                        id: newUser.id
+                    };
+                }
+                
+                // Hide modal, show chat
+                usernameModal.style.display = 'none';
+                chatApp.classList.remove('hidden');
+                
+                statusDiv.textContent = `Logged in as ${currentUser.username} (${currentUser.role})`;
+                messageInput.focus();
+                
+                // Load messages
+                await loadMessages();
+                
+                // Setup real-time
+                setupRealtime();
+                
+                console.log('✅ Chat started successfully!');
+                
+            } catch (error) {
+                console.error('❌ Error starting chat:', error);
+                showError('Error: ' + error.message);
+            }
+        }
+        
+        async function loadMessages() {
+            try {
+                console.log('Loading messages...');
+                
+                const { data: messages, error } = await supabase
+                    .from('messages')
+                    .select('*')
+                    .eq('room', currentRoom)
+                    .eq('is_deleted', false)
+                    .order('created_at', { ascending: true })
+                    .limit(20);
+                
+                if (error) {
+                    console.error('Error loading messages:', error);
+                    statusDiv.textContent = 'Error loading messages';
+                    return;
+                }
+                
+                console.log('Messages loaded:', messages?.length || 0);
+                
+                messagesDiv.innerHTML = '';
+                if (messages && messages.length > 0) {
+                    messages.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.style.padding = '10px';
+                        div.style.borderBottom = '1px solid #eee';
+                        div.innerHTML = `<strong>${msg.username}</strong>: ${msg.content}`;
+                        messagesDiv.appendChild(div);
+                    });
+                } else {
+                    messagesDiv.innerHTML = '<p>No messages yet. Start the conversation!</p>';
+                }
+                
+            } catch (error) {
+                console.error('Error in loadMessages:', error);
+            }
+        }
+        
+        async function sendMessage() {
+            const content = messageInput.value.trim();
+            
+            if (!content) return;
+            
+            console.log('Sending message:', content);
+            
+            try {
+                const { error } = await supabase
+                    .from('messages')
+                    .insert({
+                        room: currentRoom,
+                        user_id: currentUser.id,
+                        username: currentUser.username,
+                        content: content
+                    });
+                
+                if (error) {
+                    console.error('Error sending message:', error);
+                    statusDiv.textContent = 'Error sending message';
+                    return;
+                }
+                
+                messageInput.value = '';
+                console.log('✅ Message sent');
+                
+            } catch (error) {
+                console.error('Error in sendMessage:', error);
+            }
+        }
+        
+        function setupRealtime() {
+            console.log('Setting up real-time...');
+            
+            // Subscribe to new messages
+            supabase
+                .channel('messages-channel')
+                .on('postgres_changes', 
+                    { 
+                        event: 'INSERT', 
+                        schema: 'public', 
+                        table: 'messages',
+                        filter: `room=eq.${currentRoom}`
+                    }, 
+                    (payload) => {
+                        console.log('New message via real-time:', payload.new);
+                        
+                        const msg = payload.new;
+                        const div = document.createElement('div');
+                        div.style.padding = '10px';
+                        div.style.borderBottom = '1px solid #eee';
+                        div.innerHTML = `<strong>${msg.username}</strong>: ${msg.content}`;
+                        messagesDiv.appendChild(div);
+                    }
+                )
+                .subscribe((status) => {
+                    console.log('Real-time subscription status:', status);
+                    if (status === 'SUBSCRIBED') {
+                        statusDiv.textContent = `Connected as ${currentUser.username}`;
+                    }
+                });
+        }
+        
+        function showError(message) {
+            errorDiv.textContent = message;
+            setTimeout(() => {
+                errorDiv.textContent = '';
+            }, 5000);
+        }
+        
+        console.log('Script loaded. Ready to test.');
+    </script>
+</body>
+</html>
