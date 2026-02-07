@@ -1,306 +1,288 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>NiamChat Minimal Test</title>
+    <title>NiamChat Debug Test</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 400px;
-        }
-        input, button {
-            padding: 10px;
-            margin: 5px 0;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .hidden {
-            display: none;
-        }
-        #chatApp {
-            margin-top: 20px;
-        }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background: #f5f5f5; padding: 10px; overflow: auto; }
     </style>
 </head>
 <body>
-    <!-- Username Modal -->
-    <div id="usernameModal" class="modal">
-        <div class="modal-content">
-            <h2>Enter Username</h2>
-            <input type="text" id="usernameInput" placeholder="Username (e.g., Doneman123)">
-            <button id="startChatBtn">Start Chatting</button>
-            <div id="error" style="color: red; margin-top: 10px;"></div>
-        </div>
-    </div>
-
-    <!-- Chat Interface -->
-    <div id="chatApp" class="hidden">
-        <h1>NiamChat</h1>
-        <div id="messages"></div>
-        <input type="text" id="messageInput" placeholder="Type message...">
-        <button id="sendBtn">Send</button>
-        <div id="status"></div>
-    </div>
-
-    <!-- Supabase JS -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <h1>NiamChat Debug Test</h1>
     
+    <div class="section">
+        <h2>1. Test Supabase Connection</h2>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="connectionResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Create Test User</h2>
+        <input type="text" id="testUsername" placeholder="Enter username" value="TestUser">
+        <button onclick="createTestUser()">Create User</button>
+        <div id="createUserResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Send Test Message</h2>
+        <button onclick="sendTestMessage()">Send Test Message</button>
+        <div id="sendMessageResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>4. Check Database</h2>
+        <button onclick="checkDatabase()">Check Tables</button>
+        <div id="databaseResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Console Output:</h2>
+        <pre id="consoleOutput"></pre>
+    </div>
+
     <script>
-        // ===== CONFIGURATION =====
-        // ⚠️ REPLACE THESE ⚠️
+        // Clear any existing supabase variable
+        if (window.supabase) {
+            console.log('Clearing existing supabase reference');
+            window.supabase = null;
+        }
+        
+        // Create fresh Supabase client
         const SUPABASE_URL = 'https://tayhblmwkaujtkuulfqj.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRheWhibG13a2F1anRrdXVsZnFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNDQxNDEsImV4cCI6MjA4NTkyMDE0MX0.CY3cjbUqeVUynIHrsZ62fHCxFK-FtPxjxPOYwYL7a4E'; // Get from Supabase Settings > API
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRheWhibG13a2F1anRrdXVsZnFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNDQxNDEsImV4cCI6MjA4NTkyMDE0MX0.CY3cjbUqeVUynIHrsZ62fHCxFK-FtPxjxPOYwYL7a4E'; // ⚠️ REPLACE THIS
         
-        console.log('Starting NiamChat Minimal Test...');
-        console.log('URL:', SUPABASE_URL);
+        let debugSupabase;
         
-        // Initialize Supabase
-        let supabase;
-        try {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log('✅ Supabase client created');
-        } catch (error) {
-            console.error('❌ Failed to create Supabase client:', error);
-            document.getElementById('error').textContent = 'Failed to connect. Check console.';
+        function log(message) {
+            console.log(message);
+            const output = document.getElementById('consoleOutput');
+            output.textContent += message + '\n';
         }
         
-        // DOM Elements
-        const usernameModal = document.getElementById('usernameModal');
-        const chatApp = document.getElementById('chatApp');
-        const usernameInput = document.getElementById('usernameInput');
-        const startChatBtn = document.getElementById('startChatBtn');
-        const messageInput = document.getElementById('messageInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const messagesDiv = document.getElementById('messages');
-        const statusDiv = document.getElementById('status');
-        const errorDiv = document.getElementById('error');
-        
-        // Global State
-        let currentUser = {
-            username: '',
-            role: 'user'
-        };
-        let currentRoom = 'open';
-        
-        // Event Listeners
-        startChatBtn.addEventListener('click', startChat);
-        sendBtn.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-        
-        // ===== MAIN FUNCTIONS =====
-        async function startChat() {
-            const username = usernameInput.value.trim();
-            
-            if (!username) {
-                showError('Please enter a username');
-                return;
-            }
-            
-            console.log('Starting chat with username:', username);
-            statusDiv.textContent = 'Starting chat...';
+        async function testConnection() {
+            log('🔍 Testing Supabase connection...');
+            log('URL: ' + SUPABASE_URL);
+            log('Key length: ' + (SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 'NOT SET'));
             
             try {
-                // Check if user exists or create new
-                const { data: existingUser, error: checkError } = await supabase
-                    .from('users')
-                    .select('id, username, role')
-                    .eq('username', username)
-                    .single();
-                
-                if (checkError && checkError.code !== 'PGRST116') {
-                    console.error('Error checking user:', checkError);
-                    showError('Database error. Please check if tables exist.');
-                    return;
+                // Check if Supabase JS is loaded
+                if (typeof window.supabase === 'undefined') {
+                    log('❌ Supabase JS not loaded. Loading now...');
+                    await loadSupabaseJS();
                 }
                 
-                if (existingUser) {
-                    console.log('User exists:', existingUser);
-                    currentUser = {
-                        username: existingUser.username,
-                        role: existingUser.role,
-                        id: existingUser.id
-                    };
-                } else {
-                    console.log('Creating new user...');
-                    // Create new user
-                    const role = username.toLowerCase() === 'doneman123' ? 'owner' : 'user';
-                    const { data: newUser, error: createError } = await supabase
-                        .from('users')
-                        .insert({
-                            username: username,
-                            role: role,
-                            is_online: true,
-                            current_room: 'open'
-                        })
-                        .select()
-                        .single();
-                    
-                    if (createError) {
-                        console.error('Error creating user:', createError);
-                        showError('Failed to create user: ' + createError.message);
-                        return;
-                    }
-                    
-                    console.log('New user created:', newUser);
-                    currentUser = {
-                        username: newUser.username,
-                        role: newUser.role,
-                        id: newUser.id
-                    };
-                }
+                // Create new client
+                debugSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                log('✅ Supabase client created');
                 
-                // Hide modal, show chat
-                usernameModal.style.display = 'none';
-                chatApp.classList.remove('hidden');
-                
-                statusDiv.textContent = `Logged in as ${currentUser.username} (${currentUser.role})`;
-                messageInput.focus();
-                
-                // Load messages
-                await loadMessages();
-                
-                // Setup real-time
-                setupRealtime();
-                
-                console.log('✅ Chat started successfully!');
-                
-            } catch (error) {
-                console.error('❌ Error starting chat:', error);
-                showError('Error: ' + error.message);
-            }
-        }
-        
-        async function loadMessages() {
-            try {
-                console.log('Loading messages...');
-                
-                const { data: messages, error } = await supabase
-                    .from('messages')
-                    .select('*')
-                    .eq('room', currentRoom)
-                    .eq('is_deleted', false)
-                    .order('created_at', { ascending: true })
-                    .limit(20);
+                // Test simple query
+                const { data, error } = await debugSupabase.from('users').select('count').limit(1);
                 
                 if (error) {
-                    console.error('Error loading messages:', error);
-                    statusDiv.textContent = 'Error loading messages';
-                    return;
-                }
-                
-                console.log('Messages loaded:', messages?.length || 0);
-                
-                messagesDiv.innerHTML = '';
-                if (messages && messages.length > 0) {
-                    messages.forEach(msg => {
-                        const div = document.createElement('div');
-                        div.style.padding = '10px';
-                        div.style.borderBottom = '1px solid #eee';
-                        div.innerHTML = `<strong>${msg.username}</strong>: ${msg.content}`;
-                        messagesDiv.appendChild(div);
-                    });
+                    log('❌ Query error: ' + error.message);
+                    log('Code: ' + error.code);
+                    log('Details: ' + JSON.stringify(error));
+                    
+                    if (error.code === '42P01') {
+                        log('⚠️ Table "users" does not exist. Creating tables...');
+                        await createTables();
+                    }
                 } else {
-                    messagesDiv.innerHTML = '<p>No messages yet. Start the conversation!</p>';
+                    log('✅ Connection successful!');
+                    log('Response: ' + JSON.stringify(data));
                 }
                 
-            } catch (error) {
-                console.error('Error in loadMessages:', error);
+            } catch (err) {
+                log('❌ Connection failed: ' + err.message);
+                log('Stack: ' + err.stack);
             }
         }
         
-        async function sendMessage() {
-            const content = messageInput.value.trim();
+        async function loadSupabaseJS() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/@supabase/supabase-js@2';
+                script.onload = () => {
+                    log('✅ Supabase JS loaded');
+                    resolve();
+                };
+                script.onerror = () => {
+                    log('❌ Failed to load Supabase JS');
+                    reject();
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function createTables() {
+            log('📝 Creating database tables...');
             
-            if (!content) return;
-            
-            console.log('Sending message:', content);
+            // We'll need to run SQL in Supabase dashboard
+            log('Please run this SQL in Supabase SQL Editor:');
+            log(`
+                -- 1. Create users table
+                CREATE TABLE IF NOT EXISTS users (
+                    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    role TEXT DEFAULT 'user',
+                    is_online BOOLEAN DEFAULT false,
+                    current_room TEXT DEFAULT 'open',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
+                
+                -- 2. Create messages table  
+                CREATE TABLE IF NOT EXISTS messages (
+                    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                    room TEXT NOT NULL,
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    username TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    is_deleted BOOLEAN DEFAULT false,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
+                
+                -- 3. Disable RLS for testing
+                ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+                ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+                
+                -- 4. Insert test users
+                INSERT INTO users (username, role, is_online) 
+                VALUES 
+                    ('Doneman123', 'owner', true),
+                    ('TestAdmin', 'admin', true),
+                    ('TestUser', 'user', true)
+                ON CONFLICT (username) DO NOTHING;
+            `);
+        }
+        
+        async function createTestUser() {
+            const username = document.getElementById('testUsername').value || 'TestUser';
+            log('👤 Creating user: ' + username);
             
             try {
-                const { error } = await supabase
+                if (!debugSupabase) {
+                    log('❌ Supabase client not initialized');
+                    return;
+                }
+                
+                const { data, error } = await debugSupabase
+                    .from('users')
+                    .insert({
+                        username: username,
+                        role: 'user',
+                        is_online: true
+                    })
+                    .select();
+                
+                if (error) {
+                    log('❌ Error creating user: ' + error.message);
+                } else {
+                    log('✅ User created: ' + JSON.stringify(data));
+                }
+                
+            } catch (err) {
+                log('❌ Error: ' + err.message);
+            }
+        }
+        
+        async function sendTestMessage() {
+            log('💬 Sending test message...');
+            
+            try {
+                if (!debugSupabase) {
+                    log('❌ Supabase client not initialized');
+                    return;
+                }
+                
+                // First get or create a user
+                const { data: users } = await debugSupabase
+                    .from('users')
+                    .select('id, username')
+                    .limit(1);
+                
+                if (!users || users.length === 0) {
+                    log('❌ No users found. Create a user first.');
+                    return;
+                }
+                
+                const user = users[0];
+                
+                // Send message
+                const { data, error } = await debugSupabase
                     .from('messages')
                     .insert({
-                        room: currentRoom,
-                        user_id: currentUser.id,
-                        username: currentUser.username,
-                        content: content
-                    });
+                        room: 'open',
+                        user_id: user.id,
+                        username: user.username,
+                        content: 'Test message from debug tool'
+                    })
+                    .select();
                 
                 if (error) {
-                    console.error('Error sending message:', error);
-                    statusDiv.textContent = 'Error sending message';
-                    return;
+                    log('❌ Error sending message: ' + error.message);
+                } else {
+                    log('✅ Message sent: ' + JSON.stringify(data));
                 }
                 
-                messageInput.value = '';
-                console.log('✅ Message sent');
-                
-            } catch (error) {
-                console.error('Error in sendMessage:', error);
+            } catch (err) {
+                log('❌ Error: ' + err.message);
             }
         }
         
-        function setupRealtime() {
-            console.log('Setting up real-time...');
+        async function checkDatabase() {
+            log('🗄️ Checking database...');
             
-            // Subscribe to new messages
-            supabase
-                .channel('messages-channel')
-                .on('postgres_changes', 
-                    { 
-                        event: 'INSERT', 
-                        schema: 'public', 
-                        table: 'messages',
-                        filter: `room=eq.${currentRoom}`
-                    }, 
-                    (payload) => {
-                        console.log('New message via real-time:', payload.new);
-                        
-                        const msg = payload.new;
-                        const div = document.createElement('div');
-                        div.style.padding = '10px';
-                        div.style.borderBottom = '1px solid #eee';
-                        div.innerHTML = `<strong>${msg.username}</strong>: ${msg.content}`;
-                        messagesDiv.appendChild(div);
-                    }
-                )
-                .subscribe((status) => {
-                    console.log('Real-time subscription status:', status);
-                    if (status === 'SUBSCRIBED') {
-                        statusDiv.textContent = `Connected as ${currentUser.username}`;
-                    }
-                });
+            try {
+                if (!debugSupabase) {
+                    log('❌ Supabase client not initialized');
+                    return;
+                }
+                
+                // Check users table
+                const { data: users, error: usersError } = await debugSupabase
+                    .from('users')
+                    .select('*')
+                    .limit(5);
+                
+                if (usersError) {
+                    log('❌ Users table error: ' + usersError.message);
+                } else {
+                    log('👥 Users (' + (users?.length || 0) + '):');
+                    users?.forEach(u => log('  - ' + u.username + ' (' + u.role + ')'));
+                }
+                
+                // Check messages table
+                const { data: messages, error: messagesError } = await debugSupabase
+                    .from('messages')
+                    .select('*')
+                    .limit(5);
+                
+                if (messagesError) {
+                    log('❌ Messages table error: ' + messagesError.message);
+                } else {
+                    log('💬 Messages (' + (messages?.length || 0) + '):');
+                    messages?.forEach(m => log('  - ' + m.username + ': ' + m.content));
+                }
+                
+            } catch (err) {
+                log('❌ Error checking database: ' + err.message);
+            }
         }
         
-        function showError(message) {
-            errorDiv.textContent = message;
-            setTimeout(() => {
-                errorDiv.textContent = '';
-            }, 5000);
-        }
-        
-        console.log('Script loaded. Ready to test.');
+        // Initialize
+        log('🚀 NiamChat Debug Tool Started');
+        log('=============================');
+        log('1. First, get your ANON_KEY from Supabase:');
+        log('   - Go to Supabase Dashboard');
+        log('   - Settings > API');
+        log('   - Copy "anon public" key');
+        log('2. Replace line 24 in this file with your key');
+        log('3. Click "Test Connection"');
+        log('=============================');
     </script>
 </body>
 </html>
