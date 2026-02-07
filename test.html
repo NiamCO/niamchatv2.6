@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test NiamChat</title>
+</head>
+<body>
+    <h1>Testing Supabase Connection</h1>
+    <button onclick="testConnection()">Test Connection</button>
+    <div id="result"></div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testConnection() {
+            try {
+                const result = document.getElementById('result');
+                result.innerHTML = 'Testing connection...';
+                
+                // Test 1: List users
+                const { data: users, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .limit(5);
+                
+                if (error) {
+                    result.innerHTML = `❌ Error: ${error.message}<br>Check your Supabase URL and Key`;
+                    console.error('Supabase error:', error);
+                    return;
+                }
+                
+                result.innerHTML = `✅ Connected! Found ${users?.length || 0} users`;
+                console.log('Users:', users);
+                
+            } catch (err) {
+                document.getElementById('result').innerHTML = `❌ Error: ${err.message}`;
+                console.error('Test error:', err);
+            }
+        }
+    </script>
+</body>
+</html>
