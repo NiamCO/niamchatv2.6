@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NiamChat Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .loading { color: blue; }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>NiamChat - Supabase Connection Test</h1>
+    
+    <div class="test-section">
+        <h2>Step 1: Check Supabase Credentials</h2>
+        <div id="credentials"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Step 2: Test Database Connection</h2>
+        <button onclick="testDatabase()">Test Database</button>
+        <div id="databaseResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Step 3: Test Real-time</h2>
+        <button onclick="testRealtime()">Test Real-time</button>
+        <div id="realtimeResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Step 4: Test Storage</h2>
+        <button onclick="testStorage()">Test Storage</button>
+        <div id="storageResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Debug Info</h2>
+        <div id="debugInfo"></div>
+    </div>
+
+    <script>
+        // ⚠️ REPLACE THESE WITH YOUR ACTUAL VALUES ⚠️
+        const SUPABASE_URL = 'https://tayhblmwkaujtkuulfqj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRheWhibG13a2F1anRrdXVsZnFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNDQxNDEsImV4cCI6MjA4NTkyMDE0MX0.CY3cjbUqeVUynIHrsZ62fHCxFK-FtPxjxPOYwYL7a4E';
+        
+        // Show credentials (masked)
+        document.getElementById('credentials').innerHTML = `
+            <p><strong>URL:</strong> ${SUPABASE_URL || 'NOT SET'}</p>
+            <p><strong>Key:</strong> ${SUPABASE_ANON_KEY ? '✓ Set (masked)' : 'NOT SET'}</p>
+            ${!SUPABASE_URL || !SUPABASE_ANON_KEY ? 
+                '<p class="error">❌ Please replace the placeholder values in the script!</p>' : 
+                '<p class="success">✓ Credentials found</p>'}
+        `;
+        
+        let testClient;
+        
+        async function testDatabase() {
+            const resultDiv = document.getElementById('databaseResult');
+            resultDiv.innerHTML = '<p class="loading">Testing database connection...</p>';
+            
+            try {
+                // Create a fresh client for testing
+                testClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                // Test 1: List tables
+                const { data: users, error } = await testClient
+                    .from('users')
+                    .select('*')
+                    .limit(5);
+                
+                if (error) {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ Database Error: ${error.message}</p>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                        <p>Possible issues:</p>
+                        <ul>
+                            <li>Wrong Supabase URL/Key</li>
+                            <li>Tables don't exist</li>
+                            <li>RLS policies blocking access</li>
+                            <li>CORS not configured</li>
+                        </ul>
+                    `;
+                    return;
+                }
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Database connected successfully!</p>
+                    <p>Found ${users?.length || 0} users in database.</p>
+                    <pre>${JSON.stringify(users, null, 2)}</pre>
+                    <p>✅ Tables exist and are accessible.</p>
+                `;
+                
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <p class="error">❌ Connection failed: ${err.message}</p>
+                    <pre>${err.stack}</pre>
+                `;
+            }
+        }
+        
+        async function testRealtime() {
+            const resultDiv = document.getElementById('realtimeResult');
+            resultDiv.innerHTML = '<p class="loading">Testing real-time connection...</p>';
+            
+            try {
+                if (!testClient) {
+                    testClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+                
+                // Subscribe to users table changes
+                const subscription = testClient
+                    .channel('test-realtime')
+                    .on('postgres_changes', 
+                        { event: '*', schema: 'public', table: 'users' },
+                        (payload) => {
+                            resultDiv.innerHTML += `
+                                <p class="success">✅ Real-time event received!</p>
+                                <pre>${JSON.stringify(payload, null, 2)}</pre>
+                            `;
+                            subscription.unsubscribe();
+                        }
+                    )
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            resultDiv.innerHTML = '<p class="success">✅ Real-time connected! Waiting for events...</p>';
+                            
+                            // Trigger a test update
+                            setTimeout(async () => {
+                                await testClient
+                                    .from('users')
+                                    .update({ last_seen: new Date().toISOString() })
+                                    .eq('username', 'Doneman123')
+                                    .then(() => {
+                                        resultDiv.innerHTML += '<p class="loading">Test update sent...</p>';
+                                    });
+                            }, 1000);
+                        }
+                    });
+                
+                // Auto-unsubscribe after 10 seconds
+                setTimeout(() => {
+                    subscription.unsubscribe();
+                    resultDiv.innerHTML += '<p>Real-time test completed (auto-timeout).</p>';
+                }, 10000);
+                
+            } catch (err) {
+                resultDiv.innerHTML = `<p class="error">❌ Real-time error: ${err.message}</p>`;
+            }
+        }
+        
+        async function testStorage() {
+            const resultDiv = document.getElementById('storageResult');
+            resultDiv.innerHTML = '<p class="loading">Testing storage connection...</p>';
+            
+            try {
+                if (!testClient) {
+                    testClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+                
+                // List buckets
+                const { data: buckets, error } = await testClient.storage.listBuckets();
+                
+                if (error) {
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ Storage Error: ${error.message}</p>
+                        <p>Make sure storage is enabled in Supabase dashboard.</p>
+                    `;
+                    return;
+                }
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Storage connected!</p>
+                    <p>Found ${buckets?.length || 0} bucket(s).</p>
+                    <pre>${JSON.stringify(buckets, null, 2)}</pre>
+                `;
+                
+                // Check for chat-attachments bucket
+                const chatBucket = buckets.find(b => b.name === 'chat-attachments');
+                if (!chatBucket) {
+                    resultDiv.innerHTML += `
+                        <p class="error">❌ Missing bucket: 'chat-attachments'</p>
+                        <p>Create this bucket in Supabase Storage.</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML += `<p class="success">✅ Found 'chat-attachments' bucket!</p>`;
+                }
+                
+            } catch (err) {
+                resultDiv.innerHTML = `<p class="error">❌ Storage error: ${err.message}</p>`;
+            }
+        }
+        
+        // Show debug info
+        document.getElementById('debugInfo').innerHTML = `
+            <p><strong>Browser:</strong> ${navigator.userAgent}</p>
+            <p><strong>Online:</strong> ${navigator.onLine ? 'Yes' : 'No'}</p>
+            <p><strong>Supabase JS loaded:</strong> ${typeof window.supabase !== 'undefined' ? 'Yes' : 'No'}</p>
+            <p><strong>Window location:</strong> ${window.location.href}</p>
+        `;
+    </script>
+    
+    <!-- Load Supabase JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</body>
+</html>
