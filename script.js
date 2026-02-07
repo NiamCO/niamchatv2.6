@@ -287,37 +287,55 @@ function setupEmojiPicker() {
 async function handleStartChat() {
     const username = usernameInput.value.trim();
     
+    console.log('Starting chat with username:', username);
+    
     if (!validateUsername(username)) {
         return;
     }
     
-    // Check if username exists
-    const { data: existingUser } = await supabase
-        .from('users')
-        .select('username')
-        .eq('username', username)
-        .single();
-    
-    if (existingUser && username.toLowerCase() !== 'doneman123') {
-        showError('Username already taken. Please choose another.');
-        return;
+    try {
+        // Check if username exists (except for Doneman123)
+        if (username.toLowerCase() !== 'doneman123') {
+            const { data: existingUser, error } = await supabase
+                .from('users')
+                .select('username')
+                .eq('username', username)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+                console.error('Error checking username:', error);
+                showError('Error checking username availability');
+                return;
+            }
+            
+            if (existingUser) {
+                showError('Username already taken. Please choose another.');
+                return;
+            }
+        }
+        
+        // Create user session
+        currentUser.username = username;
+        currentUser.sessionId = generateSessionId();
+        currentUser.role = username.toLowerCase() === 'doneman123' ? 'owner' : 'user';
+        
+        console.log('User created:', currentUser);
+        
+        // Save to localStorage
+        localStorage.setItem('niamchat_username', username);
+        localStorage.setItem('niamchat_session', currentUser.sessionId);
+        localStorage.setItem('niamchat_theme', currentTheme);
+        
+        // Initialize user in database
+        await initializeUser();
+        
+        // Start chat
+        startChat();
+        
+    } catch (error) {
+        console.error('Error in handleStartChat:', error);
+        showError('Error starting chat. Check console for details.');
     }
-    
-    // Create user session
-    currentUser.username = username;
-    currentUser.sessionId = generateSessionId();
-    currentUser.role = username.toLowerCase() === 'doneman123' ? 'owner' : 'user';
-    
-    // Save to localStorage
-    localStorage.setItem('niamchat_username', username);
-    localStorage.setItem('niamchat_session', currentUser.sessionId);
-    localStorage.setItem('niamchat_theme', currentTheme);
-    
-    // Initialize user in database
-    await initializeUser();
-    
-    // Start chat
-    startChat();
 }
 
 function validateUsername(username) {
