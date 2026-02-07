@@ -1,9 +1,23 @@
 // ===== CONFIGURATION =====
-const SUPABASE_URL = 'https://tayhblmwkaujtkuulfqj.supabase.co';  // Replace with your Supabase URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRheWhibG13a2F1anRrdXVsZnFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNDQxNDEsImV4cCI6MjA4NTkyMDE0MX0.CY3cjbUqeVUynIHrsZ62fHCxFK-FtPxjxPOYwYL7a4E';  // Replace with your anon key
+// ⚠️ REPLACE WITH YOUR VALUES ⚠️
+const SUPABASE_URL = 'https://tayhblmwkaujtkuulfqj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRheWhibG13a2F1anRrdXVsZnFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNDQxNDEsImV4cCI6MjA4NTkyMDE0MX0.CY3cjbUqeVUynIHrsZ62fHCxFK-FtPxjxPOYwYL7a4E'; // Get from Supabase Settings > API
+
+// Debug mode
+const DEBUG = true;
 
 // Initialize Supabase
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log('🚀 Initializing NiamChat...');
+console.log('Supabase URL:', SUPABASE_URL);
+
+let supabase;
+try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase client created');
+} catch (error) {
+    console.error('❌ Failed to create Supabase client:', error);
+    alert('Failed to initialize chat. Please check console for errors.');
+}
 
 // ===== GLOBAL STATE =====
 let currentUser = {
@@ -21,8 +35,8 @@ let typingTimeout = null;
 let selectedFile = null;
 let emojiPickerActive = false;
 let onlineUsers = new Map();
-let messages = new Map(); // room -> array of messages
-let userReactions = new Map(); // messageId -> reaction type
+let messages = new Map();
+let userReactions = new Map();
 
 // ===== DOM ELEMENTS =====
 const usernameModal = document.getElementById('usernameModal');
@@ -94,6 +108,25 @@ const emojiCategories = {
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('=== NiamChat Debug ===');
+    console.log('DOM loaded');
+    console.log('Supabase:', typeof supabase);
+    console.log('Start button:', startChatBtn);
+    
+    // Test button click
+    startChatBtn.addEventListener('click', () => {
+        console.log('🎯 Start button clicked!');
+        handleStartChat();
+    });
+    
+    // Also allow Enter key
+    usernameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            console.log('⌨️ Enter key pressed in username input');
+            handleStartChat();
+        }
+    });
+    
     initializeApp();
     setupEventListeners();
     setupEmojiPicker();
@@ -106,15 +139,19 @@ function initializeApp() {
     const savedSessionId = localStorage.getItem('niamchat_session');
     const savedTheme = localStorage.getItem('niamchat_theme') || 'seaside';
     
+    console.log('Initializing app:', { savedUsername, savedSessionId, savedTheme });
+    
     if (savedUsername && savedSessionId) {
         // Auto-login with saved session
         currentUser.username = savedUsername;
         currentUser.sessionId = savedSessionId;
+        console.log('Auto-login with saved session');
         startChat();
     } else {
         // Show username modal
         usernameModal.classList.add('active');
         usernameInput.focus();
+        console.log('Showing username modal');
     }
     
     // Apply saved theme
@@ -123,11 +160,7 @@ function initializeApp() {
 }
 
 function setupEventListeners() {
-    // Username Modal
-    startChatBtn.addEventListener('click', handleStartChat);
-    usernameInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleStartChat();
-    });
+    console.log('Setting up event listeners');
     
     // Theme Selection
     themeSelect.addEventListener('click', (e) => {
@@ -287,54 +320,179 @@ function setupEmojiPicker() {
 async function handleStartChat() {
     const username = usernameInput.value.trim();
     
-    console.log('Starting chat with username:', username);
+    console.log('🟢 handleStartChat called with username:', username);
     
     if (!validateUsername(username)) {
+        console.log('❌ Username validation failed');
         return;
     }
     
     try {
-        // Check if username exists (except for Doneman123)
-        if (username.toLowerCase() !== 'doneman123') {
+        // Special case for Doneman123 (owner)
+        if (username.toLowerCase() === 'doneman123') {
+            console.log('👑 Owner login detected');
+            currentUser.username = 'Doneman123';
+            currentUser.role = 'owner';
+        } else {
+            // For regular users, check if username exists
             const { data: existingUser, error } = await supabase
                 .from('users')
-                .select('username')
+                .select('id, username, role')
                 .eq('username', username)
                 .single();
             
-            if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-                console.error('Error checking username:', error);
-                showError('Error checking username availability');
+            console.log('Existing user check:', { existingUser, error });
+            
+            if (error && error.code !== 'PGRST116') {
+                // Error other than "no rows returned"
+                console.error('Database error:', error);
+                showError('Database error. Please try again.');
                 return;
             }
             
             if (existingUser) {
-                showError('Username already taken. Please choose another.');
-                return;
+                console.log('User exists:', existingUser);
+                currentUser.id = existingUser.id;
+                currentUser.role = existingUser.role;
+            } else {
+                console.log('Creating new user...');
+                // Create new user
+                const { data: newUser, error: createError } = await supabase
+                    .from('users')
+                    .insert({
+                        username: username,
+                        role: 'user',
+                        is_online: true,
+                        current_room: 'open'
+                    })
+                    .select()
+                    .single();
+                
+                if (createError) {
+                    console.error('Error creating user:', createError);
+                    showError('Failed to create user. Please try a different username.');
+                    return;
+                }
+                
+                console.log('New user created:', newUser);
+                currentUser.id = newUser.id;
+                currentUser.role = newUser.role;
             }
+            
+            currentUser.username = username;
         }
         
-        // Create user session
-        currentUser.username = username;
-        currentUser.sessionId = generateSessionId();
-        currentUser.role = username.toLowerCase() === 'doneman123' ? 'owner' : 'user';
+        // Generate session ID
+        currentUser.sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        currentUser.isOnline = true;
         
-        console.log('User created:', currentUser);
+        console.log('✅ User object ready:', currentUser);
         
         // Save to localStorage
-        localStorage.setItem('niamchat_username', username);
+        localStorage.setItem('niamchat_username', currentUser.username);
         localStorage.setItem('niamchat_session', currentUser.sessionId);
         localStorage.setItem('niamchat_theme', currentTheme);
         
-        // Initialize user in database
-        await initializeUser();
+        // If Doneman123, we need to ensure they exist in database
+        if (currentUser.role === 'owner') {
+            await ensureOwnerExists();
+        }
         
-        // Start chat
-        startChat();
+        // Update user as online
+        await updateUserOnlineStatus(true);
+        
+        // Hide modal and show chat
+        usernameModal.classList.remove('active');
+        chatApp.classList.remove('hidden');
+        
+        // Update UI
+        currentUsername.textContent = currentUser.username;
+        userRoleBadge.textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
+        userRoleBadge.className = `role-badge ${currentUser.role}`;
+        
+        // Enable admin features if applicable
+        if (currentUser.role === 'admin' || currentUser.role === 'owner') {
+            adminChatBtn.disabled = false;
+            adminChatBtn.classList.add('enabled');
+            adminControls.classList.add('active');
+            console.log('🔓 Admin features enabled');
+        }
+        
+        // Setup subscriptions and load messages
+        setupSubscriptions();
+        loadMessages(currentRoom);
+        
+        // Focus message input
+        setTimeout(() => {
+            messageInput.focus();
+            console.log('🎯 Message input focused');
+        }, 100);
+        
+        // Update online users list
+        setTimeout(() => updateOnlineUsers(), 500);
+        
+        console.log('✅ Chat started successfully!');
         
     } catch (error) {
-        console.error('Error in handleStartChat:', error);
-        showError('Error starting chat. Check console for details.');
+        console.error('❌ Error in handleStartChat:', error);
+        showError('Failed to start chat: ' + error.message);
+    }
+}
+
+// Helper function to ensure owner exists
+async function ensureOwnerExists() {
+    try {
+        const { data: owner, error } = await supabase
+            .from('users')
+            .select('id')
+            .eq('username', 'Doneman123')
+            .single();
+        
+        if (error || !owner) {
+            console.log('Creating Doneman123 in database...');
+            const { data: newOwner, error: createError } = await supabase
+                .from('users')
+                .insert({
+                    username: 'Doneman123',
+                    role: 'owner',
+                    is_online: true,
+                    current_room: 'open'
+                })
+                .select()
+                .single();
+            
+            if (createError) {
+                console.error('Failed to create owner:', createError);
+            } else {
+                currentUser.id = newOwner.id;
+                console.log('✅ Owner created in database');
+            }
+        } else {
+            currentUser.id = owner.id;
+            console.log('✅ Owner found in database');
+        }
+    } catch (err) {
+        console.error('Error ensuring owner exists:', err);
+    }
+}
+
+// Helper function to update online status
+async function updateUserOnlineStatus(online) {
+    if (!currentUser.id) return;
+    
+    try {
+        await supabase
+            .from('users')
+            .update({ 
+                is_online: online,
+                last_seen: new Date().toISOString(),
+                current_room: currentRoom
+            })
+            .eq('id', currentUser.id);
+        
+        console.log(`✅ User marked as ${online ? 'online' : 'offline'}`);
+    } catch (error) {
+        console.error('Error updating online status:', error);
     }
 }
 
@@ -365,61 +523,9 @@ function showError(message) {
     }, 3000);
 }
 
-function generateSessionId() {
-    return 'session_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-}
-
-async function initializeUser() {
-    try {
-        // Check if user exists
-        const { data: existingUser } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', currentUser.username)
-            .single();
-        
-        if (existingUser) {
-            currentUser.id = existingUser.id;
-            currentUser.role = existingUser.role;
-            
-            // Update user as online
-            await supabase
-                .from('users')
-                .update({
-                    is_online: true,
-                    last_seen: new Date().toISOString(),
-                    current_room: currentRoom
-                })
-                .eq('id', currentUser.id);
-        } else {
-            // Create new user
-            const { data: newUser, error } = await supabase
-                .from('users')
-                .insert({
-                    username: currentUser.username,
-                    role: currentUser.role,
-                    is_online: true,
-                    last_seen: new Date().toISOString(),
-                    current_room: currentRoom
-                })
-                .select()
-                .single();
-            
-            if (error) throw error;
-            
-            currentUser.id = newUser.id;
-        }
-        
-        // Set up real-time subscriptions
-        setupSubscriptions();
-        
-    } catch (error) {
-        console.error('Error initializing user:', error);
-        showNotification('Error connecting to chat. Please refresh.', 'error');
-    }
-}
-
 function startChat() {
+    console.log('Starting chat interface...');
+    
     // Hide modal, show chat
     usernameModal.classList.remove('active');
     chatApp.classList.remove('hidden');
@@ -434,19 +540,29 @@ function startChat() {
         adminChatBtn.disabled = false;
         adminChatBtn.classList.add('enabled');
         adminControls.classList.add('active');
+        console.log('Admin features enabled');
     }
     
     // Load messages for current room
     loadMessages(currentRoom);
     
+    // Setup subscriptions
+    setupSubscriptions();
+    
     // Focus message input
     setTimeout(() => {
         messageInput.focus();
+        console.log('Message input focused');
     }, 100);
+    
+    // Update online users
+    setTimeout(() => updateOnlineUsers(), 1000);
 }
 
 // ===== REAL-TIME SUBSCRIPTIONS =====
 function setupSubscriptions() {
+    console.log('Setting up real-time subscriptions...');
+    
     // Subscribe to messages
     supabase
         .channel('messages')
@@ -458,6 +574,7 @@ function setupSubscriptions() {
                 filter: `room=eq.${currentRoom}`
             }, 
             (payload) => {
+                console.log('New message received:', payload.new);
                 handleNewMessage(payload.new);
             }
         )
@@ -468,10 +585,24 @@ function setupSubscriptions() {
                 table: 'messages'
             },
             (payload) => {
+                console.log('Message deleted:', payload.old.id);
                 handleDeletedMessage(payload.old.id);
             }
         )
-        .subscribe();
+        .on('postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'messages'
+            },
+            (payload) => {
+                console.log('Message updated:', payload.new);
+                handleUpdatedMessage(payload.new);
+            }
+        )
+        .subscribe((status) => {
+            console.log('Messages subscription status:', status);
+        });
     
     // Subscribe to users (online status)
     supabase
@@ -483,10 +614,13 @@ function setupSubscriptions() {
                 table: 'users'
             },
             async () => {
+                console.log('Users updated, refreshing list...');
                 await updateOnlineUsers();
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('Users subscription status:', status);
+        });
     
     // Subscribe to typing indicators
     supabase
@@ -496,6 +630,7 @@ function setupSubscriptions() {
             updateTypingDisplay(state);
         })
         .subscribe(async (status) => {
+            console.log('Typing subscription status:', status);
             if (status === 'SUBSCRIBED') {
                 await supabase.channel('typing').track({
                     user: currentUser.username,
@@ -512,18 +647,23 @@ async function sendMessage() {
     const content = messageInput.value.trim();
     
     if (!content && !selectedFile) {
+        console.log('No content or file to send');
         return;
     }
+    
+    console.log('Sending message:', { content, hasFile: !!selectedFile });
     
     let attachmentUrl = null;
     
     // Upload file if selected
     if (selectedFile) {
+        console.log('Uploading file:', selectedFile.name);
         attachmentUrl = await uploadFile(selectedFile);
         if (!attachmentUrl) {
             showNotification('Failed to upload image', 'error');
             return;
         }
+        console.log('File uploaded:', attachmentUrl);
     }
     
     try {
@@ -540,11 +680,16 @@ async function sendMessage() {
             .select()
             .single();
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error inserting message:', error);
+            throw error;
+        }
+        
+        console.log('Message inserted:', message);
         
         // Insert attachment if exists
         if (attachmentUrl) {
-            await supabase
+            const { error: attachError } = await supabase
                 .from('attachments')
                 .insert({
                     message_id: message.id,
@@ -553,6 +698,12 @@ async function sendMessage() {
                     file_size: selectedFile.size,
                     mime_type: selectedFile.type
                 });
+            
+            if (attachError) {
+                console.error('Error inserting attachment:', attachError);
+            } else {
+                console.log('Attachment inserted');
+            }
         }
         
         // Clear input
@@ -564,13 +715,17 @@ async function sendMessage() {
         isTyping = false;
         updateTypingStatus();
         
+        console.log('✅ Message sent successfully');
+        
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Error sending message:', error);
         showNotification('Failed to send message', 'error');
     }
 }
 
 async function loadMessages(room) {
+    console.log('Loading messages for room:', room);
+    
     try {
         // Fetch messages for room
         const { data: messagesData, error } = await supabase
@@ -583,12 +738,17 @@ async function loadMessages(room) {
             .eq('is_deleted', false)
             .order('created_at', { ascending: true });
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error loading messages:', error);
+            throw error;
+        }
+        
+        console.log('Messages loaded:', messagesData?.length || 0);
         
         // Clear container
         messagesContainer.innerHTML = '';
         
-        if (messagesData.length === 0) {
+        if (!messagesData || messagesData.length === 0) {
             messagesContainer.innerHTML = `
                 <div class="empty-state">
                     <svg class="empty-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
@@ -603,11 +763,14 @@ async function loadMessages(room) {
             addMessageToDOM(msg);
         });
         
+        // Store in messages map
+        messages.set(room, messagesData);
+        
         // Scroll to bottom
         scrollToBottom();
         
     } catch (error) {
-        console.error('Error loading messages:', error);
+        console.error('❌ Error loading messages:', error);
         showNotification('Failed to load messages', 'error');
     }
 }
@@ -615,12 +778,6 @@ async function loadMessages(room) {
 function addMessageToDOM(message) {
     const messageElement = createMessageElement(message);
     messagesContainer.appendChild(messageElement);
-    
-    // Add to messages map
-    if (!messages.has(currentRoom)) {
-        messages.set(currentRoom, []);
-    }
-    messages.get(currentRoom).push(message);
 }
 
 function createMessageElement(message) {
@@ -652,6 +809,9 @@ function createMessageElement(message) {
     const likeClass = userReaction === 'like' ? 'liked' : '';
     const dislikeClass = userReaction === 'dislike' ? 'disliked' : '';
     
+    const likes = message.likes || 0;
+    const dislikes = message.dislikes || 0;
+    
     messageDiv.innerHTML = `
         <div class="message-content">
             <div class="message-header">
@@ -672,14 +832,14 @@ function createMessageElement(message) {
                             <path ${userReaction === 'like' ? 'fill="currentColor"' : 'stroke="currentColor" stroke-width="1.5"'} 
                                   d="M6.633 10.25c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V2.75a.75.75 0 0 1 .75-.75 2.25 2.25 0 0 1 2.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282m0 0h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23H5.904m10.598-9.75H14.25M5.904 18.5c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 0 1-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 9.953 4.167 9.5 5 9.5h1.053c.472 0 .745.556.5.96a8.958 8.958 0 0 0-1.302 4.665c0 1.194.232 2.333.654 3.375Z"/>
                         </svg>
-                        <span class="count">${message.likes || 0}</span>
+                        <span class="count">${likes}</span>
                     </button>
                     <button class="action-btn dislike-btn ${dislikeClass}" onclick="reactToMessage('${message.id}', 'dislike')">
                         <svg width="16" height="16" viewBox="0 0 24 24">
                             <path ${userReaction === 'dislike' ? 'fill="currentColor"' : 'stroke="currentColor" stroke-width="1.5"'} 
                                   d="M7.498 15.25H4.372c-1.026 0-1.945-.694-2.054-1.715a12.137 12.137 0 0 1-.068-1.285c0-2.848.992-5.464 2.649-7.521C5.287 4.247 5.886 4 6.504 4h4.016a4.5 4.5 0 0 1 1.423.23l3.114 1.04a4.5 4.5 0 0 0 1.423.23h1.294M7.498 15.25c.618 0 .991.724.725 1.282A7.471 7.471 0 0 0 7.5 19.75 2.25 2.25 0 0 0 9.75 22a.75.75 0 0 0 .75-.75v-.633c0-.573.11-1.14.322-1.672.304-.76.93-1.33 1.653-1.715a9.04 9.04 0 0 0 2.86-2.4c.498-.634 1.226-1.08 2.032-1.08h.384m-10.253 1.5H9.7m8.075-9.75c.01.05.027.1.05.148.593 1.2.925 2.55.925 3.977 0 1.487-.36 2.89-.999 4.125m.023-8.25c-.076-.365.183-.75.575-.75h.908c.889 0 1.713.518 1.972 1.368.339 1.11.521 2.287.521 3.507 0 1.553-.295 3.036-.831 4.398-.306.774-1.086 1.227-1.918 1.227h-1.053c-.472 0-.745-.556-.5-.96a8.95 8.95 0 0 0 .303-.54"/>
                         </svg>
-                        <span class="count">${message.dislikes || 0}</span>
+                        <span class="count">${dislikes}</span>
                     </button>
                     <button class="action-btn reply-btn" onclick="replyToMessage('${message.id}', '${message.username}')">
                         <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -704,6 +864,8 @@ function createMessageElement(message) {
 
 // ===== REACTIONS =====
 async function reactToMessage(messageId, reaction) {
+    console.log('Reacting to message:', { messageId, reaction });
+    
     try {
         const currentReaction = userReactions.get(messageId);
         
@@ -715,12 +877,17 @@ async function reactToMessage(messageId, reaction) {
                 .eq('message_id', messageId)
                 .eq('user_id', currentUser.id);
             
-            if (error) throw error;
+            if (error) {
+                console.error('Error removing reaction:', error);
+                throw error;
+            }
             
             userReactions.delete(messageId);
             
             // Update message counts
             await updateMessageReactionCount(messageId, reaction, -1);
+            
+            console.log('Reaction removed');
             
         } else {
             // Remove previous reaction if exists
@@ -743,42 +910,64 @@ async function reactToMessage(messageId, reaction) {
                     reaction: reaction
                 });
             
-            if (error) throw error;
+            if (error) {
+                console.error('Error adding reaction:', error);
+                throw error;
+            }
             
             userReactions.set(messageId, reaction);
             
             // Update message counts
             await updateMessageReactionCount(messageId, reaction, 1);
+            
+            console.log('Reaction added');
         }
         
         // Update UI
         updateMessageReactionUI(messageId);
         
     } catch (error) {
-        console.error('Error reacting to message:', error);
+        console.error('❌ Error reacting to message:', error);
     }
 }
 
 async function updateMessageReactionCount(messageId, reaction, delta) {
     const column = reaction === 'like' ? 'likes' : 'dislikes';
     
-    const { data: message } = await supabase
-        .from('messages')
-        .select(column)
-        .eq('id', messageId)
-        .single();
-    
-    const newCount = Math.max(0, (message[column] || 0) + delta);
-    
-    await supabase
-        .from('messages')
-        .update({ [column]: newCount })
-        .eq('id', messageId);
+    try {
+        // Get current count
+        const { data: message, error } = await supabase
+            .from('messages')
+            .select(column)
+            .eq('id', messageId)
+            .single();
+        
+        if (error) throw error;
+        
+        const currentCount = message[column] || 0;
+        const newCount = Math.max(0, currentCount + delta);
+        
+        // Update count
+        const { error: updateError } = await supabase
+            .from('messages')
+            .update({ [column]: newCount })
+            .eq('id', messageId);
+        
+        if (updateError) throw updateError;
+        
+        console.log(`Updated ${column} count for message ${messageId}: ${newCount}`);
+        
+    } catch (error) {
+        console.error('Error updating reaction count:', error);
+    }
 }
 
 function updateMessageReactionUI(messageId) {
     const messageElement = document.querySelector(`.message[data-id="${messageId}"]`);
-    if (!messageElement) return;
+    if (!messageElement) {
+        console.log('Message element not found for update:', messageId);
+        return;
+    }
     
     const likeBtn = messageElement.querySelector('.like-btn');
     const dislikeBtn = messageElement.querySelector('.dislike-btn');
@@ -791,8 +980,7 @@ function updateMessageReactionUI(messageId) {
     likeBtn.classList.toggle('liked', userReaction === 'like');
     dislikeBtn.classList.toggle('disliked', userReaction === 'dislike');
     
-    // Update counts from database (could fetch if needed)
-    // For now, just toggle visual states
+    console.log('Updated UI for message:', messageId, 'reaction:', userReaction);
 }
 
 // ===== ADMIN FUNCTIONS =====
@@ -809,6 +997,8 @@ async function sendAnnouncement() {
         return;
     }
     
+    console.log('Sending announcement:', content);
+    
     try {
         // Create announcement
         const { data: announcement, error } = await supabase
@@ -820,7 +1010,10 @@ async function sendAnnouncement() {
             .select()
             .single();
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error creating announcement:', error);
+            throw error;
+        }
         
         // Send as message to all rooms
         const rooms = ['open', 'public'];
@@ -840,8 +1033,10 @@ async function sendAnnouncement() {
         announcementModal.classList.add('hidden');
         announcementText.value = '';
         
+        console.log('✅ Announcement sent successfully');
+        
     } catch (error) {
-        console.error('Error sending announcement:', error);
+        console.error('❌ Error sending announcement:', error);
         showNotification('Failed to send announcement', 'error');
     }
 }
@@ -864,16 +1059,25 @@ async function kickUser() {
         return;
     }
     
+    console.log('Kicking user:', username);
+    
     try {
         // Get user to kick
-        const { data: userToKick } = await supabase
+        const { data: userToKick, error } = await supabase
             .from('users')
-            .select('id')
+            .select('id, username, role')
             .eq('username', username)
             .single();
         
-        if (!userToKick) {
+        if (error || !userToKick) {
+            console.error('User not found:', error);
             showNotification('User not found', 'error');
+            return;
+        }
+        
+        // Don't allow kicking owner
+        if (userToKick.role === 'owner') {
+            showNotification('Cannot kick owner', 'error');
             return;
         }
         
@@ -898,8 +1102,10 @@ async function kickUser() {
         // Update online users list
         await updateOnlineUsers();
         
+        console.log('✅ User kicked successfully');
+        
     } catch (error) {
-        console.error('Error kicking user:', error);
+        console.error('❌ Error kicking user:', error);
         showNotification('Failed to kick user', 'error');
     }
 }
@@ -922,6 +1128,8 @@ async function changeUserRole(newRole) {
         return;
     }
     
+    console.log('Changing user role:', { username, newRole });
+    
     try {
         // Update user role
         const { error } = await supabase
@@ -929,7 +1137,10 @@ async function changeUserRole(newRole) {
             .update({ role: newRole })
             .eq('username', username);
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error changing role:', error);
+            throw error;
+        }
         
         showNotification(`User ${username} is now ${newRole}`, 'success');
         adminUsername.value = '';
@@ -937,8 +1148,10 @@ async function changeUserRole(newRole) {
         // Update online users list
         await updateOnlineUsers();
         
+        console.log('✅ User role changed successfully');
+        
     } catch (error) {
-        console.error('Error changing user role:', error);
+        console.error('❌ Error changing user role:', error);
         showNotification('Failed to change user role', 'error');
     }
 }
@@ -961,20 +1174,29 @@ async function banUser() {
         return;
     }
     
+    console.log('Banning user:', username);
+    
     try {
         // Get user to ban
-        const { data: userToBan } = await supabase
+        const { data: userToBan, error } = await supabase
             .from('users')
-            .select('id')
+            .select('id, username, role')
             .eq('username', username)
             .single();
         
-        if (!userToBan) {
+        if (error || !userToBan) {
+            console.error('User not found:', error);
             showNotification('User not found', 'error');
             return;
         }
         
-        // Delete all user messages
+        // Don't allow banning owner
+        if (userToBan.role === 'owner') {
+            showNotification('Cannot ban owner', 'error');
+            return;
+        }
+        
+        // Soft delete user messages
         await supabase
             .from('messages')
             .update({ is_deleted: true })
@@ -994,8 +1216,10 @@ async function banUser() {
         // Reload messages to remove banned user's messages
         loadMessages(currentRoom);
         
+        console.log('✅ User banned successfully');
+        
     } catch (error) {
-        console.error('Error banning user:', error);
+        console.error('❌ Error banning user:', error);
         showNotification('Failed to ban user', 'error');
     }
 }
@@ -1005,15 +1229,18 @@ async function deleteMessage(messageId) {
         return;
     }
     
+    console.log('Deleting message:', messageId);
+    
     try {
         // Check permissions
-        const { data: message } = await supabase
+        const { data: message, error } = await supabase
             .from('messages')
             .select('user_id, username')
             .eq('id', messageId)
             .single();
         
-        if (!message) {
+        if (error || !message) {
+            console.error('Message not found:', error);
             showNotification('Message not found', 'error');
             return;
         }
@@ -1028,7 +1255,7 @@ async function deleteMessage(messageId) {
         }
         
         // Soft delete the message
-        const { error } = await supabase
+        const { error: deleteError } = await supabase
             .from('messages')
             .update({ 
                 is_deleted: true,
@@ -1036,7 +1263,10 @@ async function deleteMessage(messageId) {
             })
             .eq('id', messageId);
         
-        if (error) throw error;
+        if (deleteError) {
+            console.error('Error deleting message:', deleteError);
+            throw deleteError;
+        }
         
         // Remove from UI
         const messageElement = document.querySelector(`.message[data-id="${messageId}"]`);
@@ -1045,9 +1275,10 @@ async function deleteMessage(messageId) {
         }
         
         showNotification('Message deleted', 'success');
+        console.log('✅ Message deleted successfully');
         
     } catch (error) {
-        console.error('Error deleting message:', error);
+        console.error('❌ Error deleting message:', error);
         showNotification('Failed to delete message', 'error');
     }
 }
@@ -1057,6 +1288,8 @@ function handleFileSelect(e) {
     const file = e.target.files[0];
     
     if (!file) return;
+    
+    console.log('File selected:', file.name, file.size);
     
     // Validate file
     if (!file.type.startsWith('image/')) {
@@ -1088,31 +1321,38 @@ function removeSelectedFile() {
 }
 
 async function uploadFile(file) {
+    console.log('Uploading file to storage...');
+    
     try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-        const filePath = `${currentUser.id}/${fileName}`;
+        const filePath = `${currentUser.id || 'temp'}/${fileName}`;
         
         const { data, error } = await supabase.storage
             .from('chat-attachments')
             .upload(filePath, file);
         
-        if (error) throw error;
+        if (error) {
+            console.error('Storage upload error:', error);
+            throw error;
+        }
         
         // Get public URL
         const { data: { publicUrl } } = supabase.storage
             .from('chat-attachments')
             .getPublicUrl(filePath);
         
+        console.log('File uploaded:', publicUrl);
         return publicUrl;
         
     } catch (error) {
-        console.error('Error uploading file:', error);
+        console.error('❌ Error uploading file:', error);
         return null;
     }
 }
 
 function previewImage(url, filename) {
+    console.log('Previewing image:', filename);
     previewImage.src = url;
     document.getElementById('imageName').textContent = filename;
     imagePreviewModal.classList.remove('hidden');
@@ -1140,6 +1380,7 @@ async function updateTypingStatus() {
             typing: isTyping,
             timestamp: Date.now()
         });
+        console.log('Typing status updated:', isTyping);
     } catch (error) {
         console.error('Error updating typing status:', error);
     }
@@ -1176,6 +1417,8 @@ async function switchRoom(room) {
         return;
     }
     
+    console.log('Switching to room:', room);
+    
     // Update current room
     currentRoom = room;
     
@@ -1184,7 +1427,8 @@ async function switchRoom(room) {
         btn.classList.toggle('active', btn.dataset.room === room);
     });
     
-    currentRoomTitle.textContent = document.querySelector(`.room-btn[data-room="${room}"]`).dataset.roomName;
+    const roomName = document.querySelector(`.room-btn[data-room="${room}"]`).dataset.roomName;
+    currentRoomTitle.textContent = roomName;
     
     // Update user's current room in database
     if (currentUser.id) {
@@ -1201,14 +1445,13 @@ async function switchRoom(room) {
     // Load messages for new room
     loadMessages(room);
     
-    // Update subscription filter
-    // Note: In a real app, you'd need to update the subscription
-    // For simplicity, we'll reload all subscriptions
-    setupSubscriptions();
+    console.log('✅ Switched to room:', room);
 }
 
 // ===== USER MANAGEMENT =====
 async function updateOnlineUsers() {
+    console.log('Updating online users list...');
+    
     try {
         const { data: users, error } = await supabase
             .from('users')
@@ -1216,14 +1459,18 @@ async function updateOnlineUsers() {
             .eq('is_online', true)
             .order('username');
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error fetching online users:', error);
+            throw error;
+        }
         
         // Update count
         onlineUsers.clear();
         users.forEach(user => onlineUsers.set(user.id, user));
         
-        onlineCount.textContent = users.length;
-        onlineCountSidebar.textContent = users.length;
+        const onlineCountNum = users?.length || 0;
+        onlineCount.textContent = onlineCountNum;
+        onlineCountSidebar.textContent = onlineCountNum;
         
         // Update user list
         updateUserList(users);
@@ -1231,15 +1478,17 @@ async function updateOnlineUsers() {
         // Update room counts
         updateRoomCounts(users);
         
+        console.log('✅ Online users updated:', onlineCountNum);
+        
     } catch (error) {
-        console.error('Error updating online users:', error);
+        console.error('❌ Error updating online users:', error);
     }
 }
 
 function updateUserList(users) {
     userList.innerHTML = '';
     
-    if (users.length === 0) {
+    if (!users || users.length === 0) {
         userList.innerHTML = '<div class="empty-users">No users online</div>';
         return;
     }
@@ -1286,6 +1535,8 @@ function applyTheme(theme) {
     
     // Update theme preview in modal if open
     highlightSelectedTheme(theme);
+    
+    console.log('Theme applied:', theme);
 }
 
 function highlightSelectedTheme(theme) {
@@ -1297,6 +1548,7 @@ function highlightSelectedTheme(theme) {
 // ===== UI HELPERS =====
 function toggleSidebar() {
     sidebar.classList.toggle('active');
+    console.log('Sidebar toggled');
 }
 
 function toggleSearchModal() {
@@ -1304,11 +1556,13 @@ function toggleSearchModal() {
     if (!searchModal.classList.contains('hidden')) {
         searchInput.focus();
     }
+    console.log('Search modal toggled');
 }
 
 function toggleEmojiPicker() {
     emojiPicker.classList.toggle('active');
     emojiPickerActive = !emojiPickerActive;
+    console.log('Emoji picker toggled:', emojiPickerActive);
 }
 
 function insertAtCursor(text) {
@@ -1320,6 +1574,8 @@ function insertAtCursor(text) {
     messageInput.selectionStart = messageInput.selectionEnd = start + text.length;
     messageInput.focus();
     updateCharCount();
+    
+    console.log('Emoji inserted:', text);
 }
 
 function updateCharCount() {
@@ -1347,12 +1603,17 @@ function handleResize() {
 
 function handleLogout() {
     if (confirm('Are you sure you want to leave the chat?')) {
+        console.log('Logging out user...');
+        
         // Update user as offline
         if (currentUser.id) {
             supabase
                 .from('users')
                 .update({ is_online: false })
-                .eq('id', currentUser.id);
+                .eq('id', currentUser.id)
+                .then(() => {
+                    console.log('User marked as offline');
+                });
         }
         
         // Clear local storage
@@ -1370,6 +1631,8 @@ function performSearch() {
         searchResults.innerHTML = '<div class="empty-search"><p>Enter a search term to find messages</p></div>';
         return;
     }
+    
+    console.log('Searching for:', query);
     
     // Search in current room messages
     const roomMessages = messages.get(currentRoom) || [];
@@ -1429,6 +1692,8 @@ function formatTime(dateString) {
 }
 
 function formatMessageContent(content) {
+    if (!content) return '';
+    
     // Convert URLs to links
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     let formatted = escapeHtml(content).replace(urlRegex, url => 
@@ -1442,6 +1707,7 @@ function formatMessageContent(content) {
 }
 
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -1457,6 +1723,8 @@ function formatFileSize(bytes) {
 
 // ===== NOTIFICATION SYSTEM =====
 function showNotification(message, type = 'info') {
+    console.log('Notification:', type, message);
+    
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.innerHTML = `
@@ -1496,6 +1764,55 @@ function getNotificationIcon(type) {
     }
 }
 
+// ===== REAL-TIME HANDLERS =====
+function handleNewMessage(message) {
+    console.log('Handling new message:', message);
+    
+    if (message.room === currentRoom && !message.is_deleted) {
+        // Check if message already exists
+        const existingMessage = document.querySelector(`.message[data-id="${message.id}"]`);
+        if (!existingMessage) {
+            addMessageToDOM(message);
+            scrollToBottom();
+            
+            // Play notification sound if enabled
+            if (localStorage.getItem('niamchat_sound') !== 'false' && 
+                message.username !== currentUser.username) {
+                playNotificationSound();
+            }
+        }
+    }
+}
+
+function handleDeletedMessage(messageId) {
+    console.log('Handling deleted message:', messageId);
+    
+    const messageElement = document.querySelector(`.message[data-id="${messageId}"]`);
+    if (messageElement) {
+        messageElement.remove();
+    }
+}
+
+function handleUpdatedMessage(message) {
+    console.log('Handling updated message:', message);
+    
+    const messageElement = document.querySelector(`.message[data-id="${message.id}"]`);
+    if (messageElement && message.is_deleted) {
+        messageElement.remove();
+    }
+}
+
+function playNotificationSound() {
+    // Simple notification sound
+    try {
+        const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+    } catch (e) {
+        console.log('Could not play notification sound');
+    }
+}
+
 // ===== LOAD SAVED SETTINGS =====
 function loadSavedSettings() {
     const soundEnabled = localStorage.getItem('niamchat_sound') !== 'false';
@@ -1507,7 +1824,28 @@ function loadSavedSettings() {
     document.getElementById('typingIndicatorToggle').checked = typingEnabled;
     document.getElementById('imagePreviewsToggle').checked = imagesEnabled;
     document.getElementById('autoScrollToggle').checked = autoScroll;
+    
+    console.log('Settings loaded:', { soundEnabled, typingEnabled, imagesEnabled, autoScroll });
 }
+
+// ===== HEARTBEAT FOR ONLINE STATUS =====
+setInterval(async () => {
+    if (currentUser.id) {
+        try {
+            await supabase
+                .from('users')
+                .update({ 
+                    last_seen: new Date().toISOString(),
+                    current_room: currentRoom
+                })
+                .eq('id', currentUser.id);
+            
+            console.log('Heartbeat sent');
+        } catch (error) {
+            console.error('Heartbeat error:', error);
+        }
+    }
+}, 30000); // Update every 30 seconds
 
 // ===== GLOBAL FUNCTIONS FOR HTML ONCLICK =====
 window.previewImage = previewImage;
@@ -1515,50 +1853,10 @@ window.reactToMessage = reactToMessage;
 window.replyToMessage = (messageId, username) => {
     messageInput.value = `@${username} `;
     messageInput.focus();
+    console.log('Replying to:', username);
 };
 window.deleteMessage = deleteMessage;
 window.scrollToMessage = scrollToMessage;
-
-// ===== REAL-TIME HANDLERS =====
-function handleNewMessage(message) {
-    if (message.room === currentRoom && !message.is_deleted) {
-        addMessageToDOM(message);
-        scrollToBottom();
-        
-        // Play notification sound if enabled
-        if (localStorage.getItem('niamchat_sound') !== 'false' && 
-            message.username !== currentUser.username) {
-            playNotificationSound();
-        }
-    }
-}
-
-function handleDeletedMessage(messageId) {
-    const messageElement = document.querySelector(`.message[data-id="${messageId}"]`);
-    if (messageElement) {
-        messageElement.remove();
-    }
-}
-
-function playNotificationSound() {
-    // Simple notification sound
-    const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
-    audio.volume = 0.3;
-    audio.play().catch(() => {});
-}
-
-// ===== HEARTBEAT FOR ONLINE STATUS =====
-setInterval(async () => {
-    if (currentUser.id) {
-        await supabase
-            .from('users')
-            .update({ 
-                last_seen: new Date().toISOString(),
-                current_room: currentRoom
-            })
-            .eq('id', currentUser.id);
-    }
-}, 30000); // Update every 30 seconds
 
 // ===== INITIALIZE ONLINE USERS =====
 setTimeout(() => {
@@ -1566,3 +1864,5 @@ setTimeout(() => {
         updateOnlineUsers();
     }
 }, 2000);
+
+console.log('✅ NiamChat script loaded successfully!');
